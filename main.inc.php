@@ -15,50 +15,33 @@ define('MASS_ACCESS_ADMIN', get_root_url() . 'admin.php?page=plugin-' . MASS_ACC
 
 // Add the plugin to the admin menu
 add_event_handler('loc_end_section_init', 'mass_access_init');
-add_event_handler('loc_end_section_init', 'mass_access_admin_menu');
+add_event_handler('get_admin_plugin_menu_links', 'mass_access_admin_menu');
 
 function mass_access_init()
 {
     global $template, $user;
-    
-    if (script_basename() == 'admin' && $user['is_admin'])
-    {
+
+    if (script_basename() == 'admin') {
         $template->assign(
             array(
                 'MASS_ACCESS_PATH' => MASS_ACCESS_PATH,
                 'MASS_ACCESS_ADMIN' => MASS_ACCESS_ADMIN,
             )
         );
-        
+
         $template->set_filename('mass_access_admin', realpath(MASS_ACCESS_PATH . 'template/admin.tpl'));
         $template->assign('MASS_ACCESS_CONTENT', $template->parse('mass_access_admin', true));
     }
 }
 
-function mass_access_admin_menu()
+function mass_access_admin_menu($menu)
 {
-    global $template, $user;
-    
-    if (script_basename() == 'admin' && $user['is_admin'])
-    {
-        $template->assign(
-            array(
-                'MASS_ACCESS_ADMIN' => MASS_ACCESS_ADMIN,
-            )
-        );
-        
-        $template->assign(
-            'PLUGIN_INDEX_ACTIONS',
-            array_merge(
-                $template->get_template_vars('PLUGIN_INDEX_ACTIONS'),
-                array(
-                    array(
-                        'URL' => MASS_ACCESS_ADMIN,
-                        'TITLE' => 'Mass Access Management',
-                        'ICON' => 'fa-users'
-                    )
-                )
-            )
-        );
-    }
-} 
+    array_push(
+        $menu,
+        array(
+            'NAME' => 'Mass Access',
+            'URL' => get_admin_plugin_menu_link(dirname(__FILE__)) . '/admin.php'
+        )
+    );
+    return $menu;
+}
