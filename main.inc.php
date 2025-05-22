@@ -1,9 +1,9 @@
 <?php
 /*
-Plugin Name: Mass Access
-Version: 1.0.0
+Plugin Name: Mass access fixer 
+Version: beta
 Description: Manage access permissions for multiple albums and users at once
-Author: Your Name
+Author: Gergely Szabo
 */
 
 defined('PHPWG_ROOT_PATH') or die('Hacking attempt!');

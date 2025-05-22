@@ -1,0 +1,4 @@
+File automatically created from SVN or Git repository.
+
+URL: https://github.com/Hu51/piwigo-mass-access 
+Revision: 98766510aee6d12017045acf87f3dc6f844202bc (Thu May 22 16:14:07 2025 +0200)
