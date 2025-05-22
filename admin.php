@@ -18,6 +18,7 @@ if (isset($_POST['submit_global'])) {
     $assign_admin_all = isset($_POST['assign_admin_all']) ? $_POST['assign_admin_all'] : false;
     $clear_existing_rules = isset($_POST['clear_existing_rules']) ? $_POST['clear_existing_rules'] : false;
 
+    clearCache();
 
     if ($clear_existing_rules) {
         // Clear all existing rules
@@ -88,7 +89,6 @@ function generate_breadcrumbs(&$items, $parent_id = null, $indexed_items = [])
 }
 
 
-
 function setUserAlbumAccess($album_ids, $user_id, $access_type)
 {
     switch ($access_type) {
@@ -150,6 +150,14 @@ function setGroupAlbumAccess($album_ids, $group_id, $access_type)
     }
 }
 
+function clearCache()
+{
+    $query = "DELETE FROM " . USER_CACHE_TABLE;
+    pwg_query($query);
+    $query = "DELETE FROM " . USER_CACHE_CATEGORIES_TABLE;
+    pwg_query($query);
+}
+
 
 if (isset($_POST['submit_assign'])) {
     $albums = isset($_POST['album_select']) ? $_POST['album_select'] : array();
@@ -158,6 +166,7 @@ if (isset($_POST['submit_assign'])) {
     $recursive = isset($_POST['recursive']);
 
     if (!empty($albums) && !empty($users) && !empty($access)) {
+        clearCache();
         // Process each album
         foreach ($albums as $album_id) {
             // Process each user
@@ -182,6 +191,7 @@ if (isset($_POST['submit_assign'])) {
 if (isset($_POST['submit_onebyone'])) {
     $permissions = isset($_POST['permissions']) ? $_POST['permissions'] : array();
     if (!empty($permissions)) {
+        clearCache();
         // Process each album
         foreach ($permissions as $album_id => $permission) {
             // Process each user
