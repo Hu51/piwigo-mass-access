@@ -100,7 +100,7 @@
               id="access_add"
         
             />
-            <label for="access_add">Add Access</label>
+            <label for="access_add">Grant Access</label>
             <br />
             <input
               type="radio"

@@ -119,12 +119,12 @@ if (isset($_POST['submit_assign'])) {
                 }
             }
         }
+        $page['infos'][] = l10n('Access permissions assigned successfully');
     }
 }
 
 
 if (isset($_POST['submit_onebyone'])) {
-
     $permissions = isset($_POST['permissions']) ? $_POST['permissions'] : array();
     if (!empty($permissions)) {
         // Process each album
