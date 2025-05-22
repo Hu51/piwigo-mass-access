@@ -4,35 +4,42 @@
 
   <form method="post" action="">
     <fieldset>
+        <legend>Global changes</legend>
+        <div class="clear-existing-rules">
+          <input
+            type="checkbox"
+            name="clear_existing_rules"
+            id="clear_existing_rules"
+          />
+          <label for="clear_existing_rules"
+            >Clear all existing (user, group access) rules</label
+          >
+        </div>
+
       <div class="set-all-private">
         <input type="checkbox" name="set_all_private" id="set_all_private" />
         <label for="set_all_private"
-          >On save, <b>set all albums to private</b></label
+          >Set all albums to <b>private</b></label
         >
       </div>
 
       <div class="assign-admin">
         <input type="checkbox" name="assign_admin_all" id="assign_admin_all" />
         <label for="assign_admin_all"
-          >On save,
-          <b>assign admin user ({$admin_user}) to all albums</b></label
+          ><b>Assign admin user</b> ({$admin_user}) to all albums</b></label
         >
       </div>
 
-      <div class="clear-existing-rules">
-        <input
-          type="checkbox"
-          name="clear_existing_rules"
-          id="clear_existing_rules"
-        />
-        <label for="clear_existing_rules"
-          >Clear all existing (user, group access) rules before applying changes</label
-        >
+
+      <div class="submit-buttons">
+        <input type="submit" name="submit" value="Apply Changes" />
       </div>
     </fieldset>
 
-    <!-- <fieldset>
-      <legend>Set Access Permissions </legend>
+    <p>Display the 5 most recently added albums first, followed by albums sorted by their parent category and name.</p>
+
+     <fieldset>
+      <legend>Assign Access Permissions to Albums</legend>
 
       <div class="album-selection" style="float: left; width: 40%">
         <label for="album_select">Select Albums:</label>
@@ -45,7 +52,12 @@
             style="width: 90%"
           >
             {foreach from=$albums item=album}
-            <option value="{$album.id}">{$album.name}</option>
+            <option value="{$album.id}">
+                {$album.name}
+                {if $album.parent_name != ''}
+                    ({$album.parent_name})
+                {/if}
+            </option>
             {/foreach}
           </select>
         </div>
@@ -86,7 +98,7 @@
               name="access"
               value="add"
               id="access_add"
-            checked
+        
             />
             <label for="access_add">Add Access</label>
             <br />
@@ -102,8 +114,8 @@
         <br />
 
         <div class="parent-folder-checkbox">
-          <input type="checkbox" name="set_parent_folders" id="set_parent_folders" />
-          <label for="set_parent_folders">Set Parent Folders</label>
+          <input type="checkbox" name="recursive" id="recursive" />
+          <label for="recursive">Set parent folders access</label>
         </div>
         
         <br />
@@ -111,15 +123,15 @@
             <input type="submit" name="submit_assign" value="Apply Changes" />
         </div>
     </div>
-    </fieldset> -->
+    </fieldset> 
+    
 
     <fieldset>
       <legend>Set Access Permissions one by one</legend>
-      <p>New albums first</p>
       <table class="border">
         <thead>
           <tr>
-            <th colspan="3"></th>
+            <th colspan="4"></th>
             <th colspan="{$users|count}">Users</th>
             <th colspan="{$groups|count}">Groups</th>
             <th></th>
@@ -127,13 +139,14 @@
           <tr>
             <th>Album</th>
             <th>Parent Album</th>
-            <th>Visible</th>
+            <th>Vis</th>
+            <th>Priv</th>
             {foreach from=$users item=user}
-            <th>{$user.username} {if $user.id == 1} * {/if}</th>
+            <th>{$user.username} {if $user.id == 1} ** {/if}</th>
             {/foreach} {foreach from=$groups item=group}
             <th>{$group.name}</th>
             {/foreach}
-            <th>Remove from all</th>
+            <th>Remove all</th>
           </tr>
         </thead>
         <tbody>
@@ -141,7 +154,8 @@
           <tr>
             <td>{$album.name}</td>
             <td>{$album.parent_name}</td>
-            <td>{if $album.visible} ✅ {else} ❌ {/if}</td>
+            <td>{if $album.visible} ✔︎ {/if}</td>
+            <td>{if $album.status == 'private'} ✔︎ {/if}</td>
             {foreach from=$users item=user}
             <td class="accent">
               {if isset($user_access[$user.id]) && in_array($album.id,
@@ -222,7 +236,7 @@
         </tbody>
       </table>
       <br />
-      <p>* admin user with ID 1</p>
+      <p>** admin user (ID 1)</p>
       <div class="submit-buttons">
         <input type="submit" name="submit_onebyone" value="Apply Changes" />
       </div>
@@ -284,4 +298,6 @@
   input[type="submit"]:hover {
     background-color: #45a049;
   }
+
+
 </style>

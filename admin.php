@@ -13,10 +13,11 @@ function toArray($result)
 }
 
 // Process form submission
-if (isset($_POST['submit_onebyone']) || isset($_POST['submit_assign'])) {
+if (isset($_POST['submit'])) {
     $set_all_private = isset($_POST['set_all_private']) ? $_POST['set_all_private'] : false;
     $assign_admin_all = isset($_POST['assign_admin_all']) ? $_POST['assign_admin_all'] : false;
     $clear_existing_rules = isset($_POST['clear_existing_rules']) ? $_POST['clear_existing_rules'] : false;
+
 
     if ($clear_existing_rules) {
         // Clear all existing rules
@@ -37,75 +38,178 @@ if (isset($_POST['submit_onebyone']) || isset($_POST['submit_assign'])) {
         pwg_query("INSERT IGNORE INTO " . USER_ACCESS_TABLE . " (user_id, cat_id) SELECT " . $admin_user_id . ", id FROM " . CATEGORIES_TABLE);
         $page['infos'][] = l10n('Admin user assigned to all albums successfully');
     }
+}
 
-    if (isset($_POST['submit_onebyone'])) {
+function setUserAlbumAccess($album_id, $user_id, $access_type, $recursive = false) {
+    if ($access_type == 'add') {
+        $query = "
+            INSERT INTO " . USER_ACCESS_TABLE . "
+            (user_id, cat_id)
+            VALUES
+            (" . $user_id . ", " . $album_id . ")
+            ON DUPLICATE KEY UPDATE user_id = user_id";
+        pwg_query($query);
+    } else if ($access_type == 'remove') {
+        $query = "
+            DELETE FROM " . USER_ACCESS_TABLE . "
+            WHERE user_id = " . $user_id . " AND cat_id = " . $album_id;
+        pwg_query($query);
+    } else if ($access_type == 'nochange') {
+        // Do nothing
+    }
 
-        $permissions = isset($_POST['permissions']) ? $_POST['permissions'] : array();
-        if (!empty($permissions)) {
-            // Process each album
-            foreach ($permissions as $album_id => $permission) {
-                // Process each user
-                if (isset($permission['user'])) {
-                    foreach ($permission['user'] as $user_id => $value) {
-                        if ($value == 1) {
-                            $query = "
+    if ($recursive) {
+        $query = "
+            SELECT id FROM " . CATEGORIES_TABLE . " WHERE id_uppercat = " . $album_id;
+        $result = pwg_query($query);
+        while ($row = pwg_db_fetch_assoc($result)) {
+            setUserAlbumAccess($row['id'], $user_id, $access_type, true);
+        }
+    }
+}
+
+function setGroupAlbumAccess($album_id, $group_id, $access_type, $recursive = false) {
+    if ($access_type == 'add') {
+        $query = "
+            INSERT INTO " . GROUP_ACCESS_TABLE . "
+            (group_id, cat_id)
+            VALUES
+            (" . $group_id . ", " . $album_id . ")
+            ON DUPLICATE KEY UPDATE group_id = group_id";
+        pwg_query($query);
+    } else if ($access_type == 'remove') {
+        $query = "
+            DELETE FROM " . GROUP_ACCESS_TABLE . "
+            WHERE group_id = " . $group_id . " AND cat_id = " . $album_id;
+        pwg_query($query);
+    } else if ($access_type == 'nochange') {
+        // Do nothing
+    }
+
+    if ($recursive) {
+        $query = "
+            SELECT id FROM " . CATEGORIES_TABLE . " WHERE id_uppercat = " . $album_id;
+        $result = pwg_query($query);
+        while ($row = pwg_db_fetch_assoc($result)) {
+            setGroupAlbumAccess($row['id'], $group_id, $access_type, true);
+        }
+    }
+}
+
+
+
+if (isset($_POST['submit_assign'])) {
+    $albums = isset($_POST['album_select']) ? $_POST['album_select'] : array();
+    $users = isset($_POST['user_group_select']) ? $_POST['user_group_select'] : array();
+    $access = isset($_POST['access']) ? $_POST['access'] : null;
+    $recursive = isset($_POST['recursive']);
+
+    if (!empty($albums) && !empty($users) && !empty($access)) {
+        // Process each album
+        foreach ($albums as $album_id) {
+            // Process each user
+            foreach ($users as $user_id) {
+                $userType = explode('_', $user_id)[0];
+                $id = explode('_', $user_id)[1];
+                if ($userType == 'user') {
+                    setUserAlbumAccess($album_id, $id, $access, $recursive);
+                } 
+                if ($userType == 'group') {
+                    setGroupAlbumAccess($album_id, $id, $access, $recursive);
+                }
+            }
+        }
+    }
+}
+
+
+if (isset($_POST['submit_onebyone'])) {
+
+    $permissions = isset($_POST['permissions']) ? $_POST['permissions'] : array();
+    if (!empty($permissions)) {
+        // Process each album
+        foreach ($permissions as $album_id => $permission) {
+            // Process each user
+            if (isset($permission['user'])) {
+                foreach ($permission['user'] as $user_id => $value) {
+                    if ($value == 1) {
+                        $query = "
                             INSERT INTO " . USER_ACCESS_TABLE . "
                             (user_id, cat_id)
                             VALUES
                             (" . $user_id . ", " . $album_id . ")
                             ON DUPLICATE KEY UPDATE user_id = user_id";
-                            pwg_query($query);
-                        } else {
-                            $query = "
+                        pwg_query($query);
+                    } else {
+                        $query = "
                             DELETE FROM " . USER_ACCESS_TABLE . "
                             WHERE user_id = " . $user_id . " AND cat_id = " . $album_id;
-                            pwg_query($query);
-                        }
+                        pwg_query($query);
                     }
                 }
+            }
 
-                // Process each group
-                if (isset($permission['group'])) {
-                    foreach ($permission['group'] as $group_id => $value) {
-                        if ($value == 1) {
-                            $query = "
+            // Process each group
+            if (isset($permission['group'])) {
+                foreach ($permission['group'] as $group_id => $value) {
+                    if ($value == 1) {
+                        $query = "
                             INSERT INTO " . GROUP_ACCESS_TABLE . "
                             (group_id, cat_id)
                             VALUES
                             (" . $group_id . ", " . $album_id . ")
                             ON DUPLICATE KEY UPDATE group_id = group_id";
-                            pwg_query($query);
-                        } else {
-                            $query = "
+                        pwg_query($query);
+                    } else {
+                        $query = "
                             DELETE FROM " . GROUP_ACCESS_TABLE . "
                             WHERE group_id = " . $group_id . " AND cat_id = " . $album_id;
-                            pwg_query($query);
-                        }
+                        pwg_query($query);
                     }
-                }
-
-                if (isset($permission['remove_all'])) {
-                    $query = "
-                    DELETE FROM " . USER_ACCESS_TABLE . "
-                    WHERE cat_id = " . $album_id . " AND user_id != 1";
-                    pwg_query($query);
-                    $page['infos'][] = l10n('All user access removed for album ' . $album_id);
                 }
             }
 
-            $page['infos'][] = l10n('Permissions updated successfully');
+            if (isset($permission['remove_all'])) {
+                $query = "
+                    DELETE FROM " . USER_ACCESS_TABLE . "
+                    WHERE cat_id = " . $album_id ;
+                pwg_query($query);
+                $query = "
+                    DELETE FROM " . GROUP_ACCESS_TABLE . "
+                    WHERE cat_id = " . $album_id;
+                pwg_query($query);
+                $page['infos'][] = l10n('All user and group access has been removed for album ' . $album_id);
+            }
         }
+
+        $page['infos'][] = l10n('Permissions updated successfully');
     }
 }
 
 // Get all albums
 $query = "
-    SELECT c.id, c.name, p.name as parent_name, c.visible
+    SELECT c.id, c.name, p.name as parent_name, c.visible, c.status
     FROM " . CATEGORIES_TABLE . " c
     LEFT JOIN " . CATEGORIES_TABLE . " p ON c.id_uppercat = p.id
-    ORDER BY c.id DESC, c.name ASC, coalesce(p.name, '') ASC
+    ORDER BY c.id DESC LIMIT 5
 ";
-$albums = toArray(pwg_query($query));
+$last5_albums = toArray(pwg_query($query));
+foreach ($last5_albums as &$album) {
+    $album['name'] .= ' *';
+}
+
+$template->assign('last5_albums', $last5_albums);
+$last5_albums_ids = array_column($last5_albums, 'id');
+
+// Get all albums
+$query = "
+    SELECT c.id, c.name, p.name as parent_name, c.visible, c.status
+    FROM " . CATEGORIES_TABLE . " c
+    LEFT JOIN " . CATEGORIES_TABLE . " p ON c.id_uppercat = p.id
+    WHERE c.id NOT IN (" . implode(',', $last5_albums_ids) . ")
+    ORDER BY c.name ASC, coalesce(p.name, '') ASC
+";
+$albums = array_merge($last5_albums, toArray(pwg_query($query)));
 $template->assign('albums', $albums);
 
 // Get all users_access
