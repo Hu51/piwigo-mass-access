@@ -32,7 +32,7 @@
 
 
       <div class="submit-buttons">
-        <input type="submit" name="submit" value="Apply Changes" />
+        <input type="submit" name="submit_global" value="Apply Changes" />
       </div>
     </fieldset>
 
@@ -53,10 +53,7 @@
           >
             {foreach from=$albums item=album}
             <option value="{$album.id}">
-                {$album.name}
-                {if $album.parent_name != ''}
-                    ({$album.parent_name})
-                {/if}
+                {$album.long_name}
             </option>
             {/foreach}
           </select>
@@ -131,14 +128,13 @@
       <table class="border">
         <thead>
           <tr>
-            <th colspan="4"></th>
+            <th colspan="3"></th>
             <th colspan="{$users|count}">Users</th>
             <th colspan="{$groups|count}">Groups</th>
             <th></th>
           </tr>
           <tr>
-            <th>Album</th>
-            <th>Parent Album</th>
+            <th>Last 5 Albums</th>
             <th>Vis</th>
             <th>Priv</th>
             {foreach from=$users item=user}
@@ -150,30 +146,19 @@
           </tr>
         </thead>
         <tbody>
-          {foreach from=$albums item=album}
+          {foreach from=$last5_albums item=album}
           <tr>
             <td>{$album.name}</td>
-            <td>{$album.parent_name}</td>
             <td>{if $album.visible} ✔︎ {/if}</td>
             <td>{if $album.status == 'private'} ✔︎ {/if}</td>
             {foreach from=$users item=user}
-            <td class="accent">
+            <td class="accent" style="text-align: right;">
               {if isset($user_access[$user.id]) && in_array($album.id,
               $user_access[$user.id])}
-              <input
-                type="radio"
-                name="permissions[{$album.id}][user][{$user.id}]"
-                value="1"
-                checked
-              />
-              <span style="color: #45a049">yes</span>
-              <input
-                type="radio"
-                name="permissions[{$album.id}][user][{$user.id}]"
-                value="0"
-              />
-              <span>no</span>
+              <span style="font-weight: bold; color: #45a049">yes</span>
               {else}
+              <span style="color: #d32f2f">no</span>
+              {/if}|
               <input
                 type="radio"
                 name="permissions[{$album.id}][user][{$user.id}]"
@@ -181,32 +166,20 @@
               />
               <span>yes</span>
               <input
-                type="radio"
-                name="permissions[{$album.id}][user][{$user.id}]"
-                value="0"
-                checked
+              type="radio"
+              name="permissions[{$album.id}][user][{$user.id}]"
+              value="0"
               />
-              <span style="color: #d32f2f">no</span>
-              {/if}
+              <span>no</span>
             </td>
             {/foreach} {foreach from=$groups item=group}
-            <td class="accent">
+            <td class="accent" style="text-align: right;">
               {if isset($group_access[$group.id]) && in_array($album.id,
               $group_access[$group.id])}
-              <input
-                type="radio"
-                name="permissions[{$album.id}][group][{$group.id}]"
-                value="1"
-                checked
-              />
-              <span style="color: #45a049">yes</span>
-              <input
-                type="radio"
-                name="permissions[{$album.id}][group][{$group.id}]"
-                value="0"
-              />
-              <span>no</span>
+              <span style="font-weight: bold; color: #45a049">yes</span>
               {else}
+              <span style="color: #d32f2f">no</span>
+              {/if}|
               <input
                 type="radio"
                 name="permissions[{$album.id}][group][{$group.id}]"
@@ -217,10 +190,82 @@
                 type="radio"
                 name="permissions[{$album.id}][group][{$group.id}]"
                 value="0"
-                checked
               />
+              <span>no</span>
+            </td>
+            {/foreach}
+            <td class="accent">
+              <input
+                type="checkbox"
+                name="permissions[{$album.id}][remove_all]"
+                value="1"
+              />
+              Remove
+            </td>
+          </tr>
+          {/foreach}
+
+          <tr>
+            <th>Albums</th>
+            <th>Vis</th>
+            <th>Priv</th>
+            {foreach from=$users item=user}
+            <th>{$user.username} {if $user.id == 1} ** {/if}</th>
+            {/foreach} {foreach from=$groups item=group}
+            <th>{$group.name}</th>
+            {/foreach}
+            <th>Remove all</th>
+          </tr>
+          {foreach from=$albums item=album}
+          <tr>
+            <td>{$album.long_name}</td>
+            <td>{if $album.visible} ✔︎ {/if}</td>
+            <td>{if $album.status == 'private'} ✔︎ {/if}</td>
+            {foreach from=$users item=user}
+            <td class="accent" style="text-align: right;">
+              {if isset($user_access[$user.id]) && in_array($album.id,
+              $user_access[$user.id])}
+              <span style="font-weight: bold; color: #45a049">yes</span>
+              {else}
               <span style="color: #d32f2f">no</span>
-              {/if}
+              {/if}|
+              <input
+                type="radio"
+                name="permissions[{$album.id}][user][{$user.id}]"
+                value="1"
+                title="User: {$user.username} - {$album.long_name}"
+              />
+              <span>yes</span>
+              <input
+              type="radio"
+              name="permissions[{$album.id}][user][{$user.id}]"
+              value="0"
+              title="User: {$user.username} - {$album.long_name}"
+              />
+              <span>no</span>
+            </td>
+            {/foreach} {foreach from=$groups item=group}
+            <td class="accent" style="text-align: right;">
+              {if isset($group_access[$group.id]) && in_array($album.id,
+              $group_access[$group.id])}
+              <span style="font-weight: bold; color: #45a049">yes</span>
+              {else}
+              <span style="color: #d32f2f">no</span>
+              {/if}|
+              <input
+                type="radio"
+                name="permissions[{$album.id}][group][{$group.id}]"
+                value="1"
+                title="Group: {$group.name} - {$album.long_name}"
+              />
+              <span>yes</span>
+              <input
+                type="radio"
+                name="permissions[{$album.id}][group][{$group.id}]"
+                value="0"
+                title="Group: {$group.name} - {$album.long_name}"
+              />
+              <span>no</span>
             </td>
             {/foreach}
             <td class="accent">

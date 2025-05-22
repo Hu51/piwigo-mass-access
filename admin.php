@@ -13,7 +13,7 @@ function toArray($result)
 }
 
 // Process form submission
-if (isset($_POST['submit'])) {
+if (isset($_POST['submit_global'])) {
     $set_all_private = isset($_POST['set_all_private']) ? $_POST['set_all_private'] : false;
     $assign_admin_all = isset($_POST['assign_admin_all']) ? $_POST['assign_admin_all'] : false;
     $clear_existing_rules = isset($_POST['clear_existing_rules']) ? $_POST['clear_existing_rules'] : false;
@@ -40,62 +40,115 @@ if (isset($_POST['submit'])) {
     }
 }
 
-function setUserAlbumAccess($album_id, $user_id, $access_type, $recursive = false) {
-    if ($access_type == 'add') {
-        $query = "
-            INSERT INTO " . USER_ACCESS_TABLE . "
-            (user_id, cat_id)
-            VALUES
-            (" . $user_id . ", " . $album_id . ")
-            ON DUPLICATE KEY UPDATE user_id = user_id";
-        pwg_query($query);
-    } else if ($access_type == 'remove') {
-        $query = "
-            DELETE FROM " . USER_ACCESS_TABLE . "
-            WHERE user_id = " . $user_id . " AND cat_id = " . $album_id;
-        pwg_query($query);
-    } else if ($access_type == 'nochange') {
-        // Do nothing
-    }
 
+function collectAlbumIds($album_id, $recursive = false, $album_ids = array())
+{
+    $album_ids[] = $album_id;
     if ($recursive) {
         $query = "
             SELECT id FROM " . CATEGORIES_TABLE . " WHERE id_uppercat = " . $album_id;
         $result = pwg_query($query);
         while ($row = pwg_db_fetch_assoc($result)) {
-            setUserAlbumAccess($row['id'], $user_id, $access_type, true);
+            $album_ids[] = $row['id'];
+            $album_ids = collectAlbumIds($row['id'], true, $album_ids);
         }
+    }
+    return array_unique($album_ids);
+}
+
+;
+function generate_breadcrumbs(&$items, $parent_id = null, $indexed_items = [])
+{
+    // Index items by ID for quick parent lookup
+    if (empty($indexed_items)) {
+        foreach ($items as $item) {
+            $indexed_items[$item['id']] = $item;
+        }
+    }
+
+    $items_to_process = array_filter($items, function ($item) use ($parent_id) {
+        return $item['id_uppercat'] == $parent_id;
+    });
+
+    // Build breadcrumbs for each item
+    foreach ($items_to_process as $index => &$item) {
+        $breadcrumb = [];
+        $current_id = $item['id'];
+
+        while (isset($indexed_items[$current_id])) {
+            $current = $indexed_items[$current_id];
+            array_unshift($breadcrumb, $current['name']);
+            $current_id = $current['id_uppercat'];
+        }
+
+        $item['long_name'] = implode(' &raquo; ', $breadcrumb);
+        $items[$index] = $item;
+        generate_breadcrumbs($items, $item['id'], $indexed_items);
     }
 }
 
-function setGroupAlbumAccess($album_id, $group_id, $access_type, $recursive = false) {
-    if ($access_type == 'add') {
-        $query = "
-            INSERT INTO " . GROUP_ACCESS_TABLE . "
-            (group_id, cat_id)
-            VALUES
-            (" . $group_id . ", " . $album_id . ")
-            ON DUPLICATE KEY UPDATE group_id = group_id";
-        pwg_query($query);
-    } else if ($access_type == 'remove') {
-        $query = "
-            DELETE FROM " . GROUP_ACCESS_TABLE . "
-            WHERE group_id = " . $group_id . " AND cat_id = " . $album_id;
-        pwg_query($query);
-    } else if ($access_type == 'nochange') {
-        // Do nothing
-    }
 
-    if ($recursive) {
-        $query = "
-            SELECT id FROM " . CATEGORIES_TABLE . " WHERE id_uppercat = " . $album_id;
-        $result = pwg_query($query);
-        while ($row = pwg_db_fetch_assoc($result)) {
-            setGroupAlbumAccess($row['id'], $group_id, $access_type, true);
-        }
+
+function setUserAlbumAccess($album_ids, $user_id, $access_type)
+{
+    switch ($access_type) {
+        case 'add':
+            foreach ($album_ids as $album_id) {
+                $query = "
+                    INSERT IGNORE INTO " . USER_ACCESS_TABLE . "
+                    (user_id, cat_id)
+                    VALUES
+                    (" . $user_id . ", " . $album_id . ")
+                    ON DUPLICATE KEY UPDATE user_id = user_id";
+                pwg_query($query);
+            }
+            break;
+
+        case 'remove':
+            foreach ($album_ids as $album_id) {
+                $query = "
+                    DELETE FROM " . USER_ACCESS_TABLE . "
+                    WHERE user_id = " . $user_id . " AND cat_id = " . $album_id;
+                pwg_query($query);
+            }
+            break;
+
+        case 'nochange':
+            // Do nothing
+            break;
     }
 }
 
+
+function setGroupAlbumAccess($album_ids, $group_id, $access_type)
+{
+    switch ($access_type) {
+        case 'add':
+            foreach ($album_ids as $album_id) {
+                $query = "
+                    INSERT IGNORE INTO " . GROUP_ACCESS_TABLE . "
+                    (group_id, cat_id)
+                    VALUES
+                    (" . $group_id . ", " . $album_id . ")
+                    ON DUPLICATE KEY UPDATE group_id = group_id";
+                pwg_query($query);
+            }
+            break;
+
+        case 'remove':
+            foreach ($album_ids as $album_id) {
+                $query = "
+                    DELETE FROM " . GROUP_ACCESS_TABLE . "
+                    WHERE group_id = " . $group_id . " AND cat_id = " . $album_id;
+                pwg_query($query);
+            }
+            break;
+
+        case 'nochange':
+            // Do nothing
+            break;
+    }
+}
 
 
 if (isset($_POST['submit_assign'])) {
@@ -111,11 +164,13 @@ if (isset($_POST['submit_assign'])) {
             foreach ($users as $user_id) {
                 $userType = explode('_', $user_id)[0];
                 $id = explode('_', $user_id)[1];
+
+                $album_ids = collectAlbumIds($album_id, $recursive);
                 if ($userType == 'user') {
-                    setUserAlbumAccess($album_id, $id, $access, $recursive);
-                } 
+                    setUserAlbumAccess($album_ids, $id, $access);
+                }
                 if ($userType == 'group') {
-                    setGroupAlbumAccess($album_id, $id, $access, $recursive);
+                    setGroupAlbumAccess($album_ids, $id, $access);
                 }
             }
         }
@@ -172,7 +227,7 @@ if (isset($_POST['submit_onebyone'])) {
             if (isset($permission['remove_all'])) {
                 $query = "
                     DELETE FROM " . USER_ACCESS_TABLE . "
-                    WHERE cat_id = " . $album_id ;
+                    WHERE cat_id = " . $album_id;
                 pwg_query($query);
                 $query = "
                     DELETE FROM " . GROUP_ACCESS_TABLE . "
@@ -188,28 +243,27 @@ if (isset($_POST['submit_onebyone'])) {
 
 // Get all albums
 $query = "
-    SELECT c.id, c.name, p.name as parent_name, c.visible, c.status
+    SELECT c.id, c.name, p.name as parent_name, c.visible, c.status, c.id_uppercat
     FROM " . CATEGORIES_TABLE . " c
     LEFT JOIN " . CATEGORIES_TABLE . " p ON c.id_uppercat = p.id
     ORDER BY c.id DESC LIMIT 5
 ";
 $last5_albums = toArray(pwg_query($query));
-foreach ($last5_albums as &$album) {
-    $album['name'] .= ' *';
-}
-
+generate_breadcrumbs($last5_albums, null, []);
 $template->assign('last5_albums', $last5_albums);
-$last5_albums_ids = array_column($last5_albums, 'id');
 
 // Get all albums
 $query = "
-    SELECT c.id, c.name, p.name as parent_name, c.visible, c.status
+    SELECT c.id, c.name, p.name as parent_name, c.visible, c.status, c.id_uppercat
     FROM " . CATEGORIES_TABLE . " c
     LEFT JOIN " . CATEGORIES_TABLE . " p ON c.id_uppercat = p.id
-    WHERE c.id NOT IN (" . implode(',', $last5_albums_ids) . ")
-    ORDER BY c.name ASC, coalesce(p.name, '') ASC
+    ORDER BY c.name ASC
 ";
-$albums = array_merge($last5_albums, toArray(pwg_query($query)));
+$albums = toArray(pwg_query($query));
+generate_breadcrumbs($albums, null, []);
+usort($albums, function ($a, $b) {
+    return strcmp($a['long_name'], $b['long_name']);
+});
 $template->assign('albums', $albums);
 
 // Get all users_access
